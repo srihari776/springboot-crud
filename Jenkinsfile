@@ -1,10 +1,10 @@
+groovy
 pipeline {
     agent any
     tools {
         maven 'Maven-3.9'
     }
     stages {
-        // ==================== STAGE 1 ====================
         stage('Checkout') {
             steps {
                 echo 'Pulling code from GitHub...'
@@ -13,43 +13,49 @@ pipeline {
                 echo 'Code pulled successfully!'
             }
         }
-        // ==================== STAGE 2 ====================
         stage('Build') {
             steps {
-                echo 'Building the project...'
+                echo 'Building WAR file...'
                 bat 'mvn clean package -DskipTests'
-                echo 'Build successful!'
+                echo 'WAR built successfully!'
             }
         }
-        // ==================== STAGE 3 ====================
         stage('Deploy') {
             steps {
-                echo 'Deploying the application...'
+                echo 'Deploying to Tomcat...'
+                // Stop Tomcat
+                bat 'C:\\software\\apache-tomcat-10.1.54\\bin\\shutdown.bat'
+                // Wait for Tomcat to stop
+                bat 'timeout /t 5'
+                // Delete old WAR and deployed folder
                 bat '''
-                    :: Kill existing app on port 9090
-                    for /f "tokens=5" %%a in ('netstat -aon ^| find ":9090" ^| find "LISTENING"') do (
-                        taskkill /f /pid %%a
+                    if exist C:\\software\\apache-tomcat-10.1.54\\webapps\\SpringBoot_CRUD-0.0.1-SNAPSHOT.war (
+                        del C:\\software\\apache-tomcat-10.1.54\\webapps\\SpringBoot_CRUD-0.0.1-SNAPSHOT.war
                     )
-                    echo old instance killed
+                    if exist C:\\software\\apache-tomcat-10.1.54\\webapps\\SpringBoot_CRUD-0.0.1-SNAPSHOT (
+                        rmdir /s /q C:\\software\\apache-tomcat-10.1.54\\webapps\\SpringBoot_CRUD-0.0.1-SNAPSHOT
+                    )
                 '''
+                // Copy new WAR to Tomcat webapps
                 bat '''
-                    start /min java -jar target\\SpringBoot_CRUD-0.0.1-SNAPSHOT.jar
+                    copy /Y target\\SpringBoot_CRUD-0.0.1-SNAPSHOT.war C:\\software\\apache-tomcat-10.1.54\\webapps\\
                 '''
-                echo 'Application deployed!'
+                // Start Tomcat
+                bat 'C:\\software\\apache-tomcat-10.1.54\\bin\\startup.bat'
+                echo 'Deployed to Tomcat successfully!'
             }
         }
     }
-    // ==================== POST BUILD ====================
     post {
         success {
             echo '========================================='
-            echo 'BUILD AND DEPLOY SUCCESS! ✅'
-            echo 'App running on http://localhost:9090'
+            echo 'BUILD AND DEPLOY SUCCESS!'
+            echo 'App running on http://localhost:2026/SpringBoot_CRUD-0.0.1-SNAPSHOT'
             echo '========================================='
         }
         failure {
             echo '========================================='
-            echo 'BUILD FAILED! ❌'
+            echo 'BUILD FAILED!'
             echo 'Check console output for errors'
             echo '========================================='
         }
